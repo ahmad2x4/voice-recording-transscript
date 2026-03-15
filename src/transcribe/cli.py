@@ -20,8 +20,8 @@ from .session import run
 @click.option(
     "--output-dir",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
-    default=".",
-    help="Directory to save transcript files.",
+    default="transcripts",
+    help="Directory to save transcript files (default: ./transcripts).",
 )
 @click.option("--device", type=int, default=None, help="Mic input device index.")
 @click.option(

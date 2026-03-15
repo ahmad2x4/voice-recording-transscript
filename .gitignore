@@ -11,7 +11,8 @@ build/
 venv/
 
 # Transcripts
-transcript_*.txt
+transcripts/*
+!transcripts/.gitkeep
 
 # macOS
 .DS_Store

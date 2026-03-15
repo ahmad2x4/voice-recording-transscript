@@ -83,7 +83,7 @@ transcribe --list-devices
 transcribe --device 0
 ```
 
-Press `Ctrl+C` to stop. A transcript file is saved automatically as `transcript_YYYY-MM-DD_HH-MM.txt` in the current directory (or `--output-dir`).
+Press `Ctrl+C` to stop. A transcript file is saved automatically as `transcript_YYYY-MM-DD_HH-MM.txt` in the `transcripts/` folder (or `--output-dir`).
 
 ---
 
