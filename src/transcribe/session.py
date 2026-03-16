@@ -9,30 +9,18 @@ from .audio.system import system_audio_stream
 from .config import Config
 from .output import OutputManager
 from .realtime.client import RealtimeTranscriptionClient, TranscriptEvent
-from .teams import detect_teams_process
 
 log = logging.getLogger(__name__)
 
 
 async def run(config: Config) -> None:
     if config.use_system_audio:
-        if shutil.which("audiotee"):
-            config.teams_pid = await detect_teams_process()
-            if config.teams_pid:
-                print(f"Teams process detected (PID {config.teams_pid}). Capturing Teams audio via AudioTee.")
-            elif config.teams_only:
-                print("No Teams process detected. Exiting.")
-                return
-            else:
-                print("Capturing all system audio via AudioTee.")
-        elif config.teams_only:
-            print("AudioTee not installed. Cannot capture system audio.")
-            print("Build from source: git clone https://github.com/makeusabrew/audiotee && cd audiotee && swift build -c release")
-            return
-        else:
+        if not shutil.which("audiotee"):
             print("AudioTee not installed. Falling back to mic-only mode.")
             print("To capture system audio, build AudioTee from source:")
-            print("  git clone https://github.com/makeusabrew/audiotee && cd audiotee && swift build -c release\n")
+            print("  git clone https://github.com/makeusabrew/audiotee")
+            print("  cd audiotee && swift build -c release")
+            print("  cp .build/release/audiotee /usr/local/bin/audiotee\n")
             config.use_system_audio = False
 
     output_queue: asyncio.Queue[TranscriptEvent] = asyncio.Queue()
@@ -47,10 +35,11 @@ async def run(config: Config) -> None:
 
     sources: list[str] = []
     if config.use_mic:
-        sources.append("mic")
+        sources.append(f"mic (device {config.mic_device})" if config.mic_device is not None else "mic")
     if config.use_system_audio:
-        sources.append("system audio (AudioTee)")
-    print(f"Transcribing from: {', '.join(sources)}")
+        label = config.meeting_name or "all system audio"
+        sources.append(f"system audio ({label})")
+    print(f"\nTranscribing from: {', '.join(sources)}")
     print(f"Model: {config.model}")
     print("Press Ctrl+C to stop.\n")
 
@@ -65,8 +54,7 @@ async def run(config: Config) -> None:
                     label="You",
                     output_queue=output_queue,
                 )
-                mic_audio = mic_stream(device=config.device)
-                tg.create_task(mic_client.run(mic_audio))
+                tg.create_task(mic_client.run(mic_stream(device=config.mic_device)))
 
             if config.use_system_audio:
                 sys_client = RealtimeTranscriptionClient(
@@ -75,8 +63,7 @@ async def run(config: Config) -> None:
                     label="Remote",
                     output_queue=output_queue,
                 )
-                sys_audio = system_audio_stream(teams_pid=config.teams_pid)
-                tg.create_task(sys_client.run(sys_audio))
+                tg.create_task(sys_client.run(system_audio_stream(teams_pid=config.meeting_pid)))
 
             await shutdown.wait()
             raise KeyboardInterrupt

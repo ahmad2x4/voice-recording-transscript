@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 import os
-import shutil
 
 
 @dataclass
@@ -9,13 +8,12 @@ class Config:
     api_key: str = ""
     model: str = "gpt-4o-mini-transcribe"
     output_dir: Path = field(default_factory=Path.cwd)
-    device: int | None = None
+    mic_device: int | None = None
+    meeting_pid: int | None = None  # PID to pass to AudioTee --include-processes
+    meeting_name: str = ""          # Display name for output
     use_mic: bool = True
     use_system_audio: bool = True
-    teams_only: bool = False
     verbose: bool = False
-    teams_pid: int | None = None
-    teams_audio_device: int | None = None
 
     def validate(self) -> list[str]:
         errors: list[str] = []
