@@ -67,7 +67,7 @@ async def select_meeting(preselected: str | None) -> MeetingApp | None:
         needle = preselected.lower()
         for app in apps:
             if needle in app.name.lower():
-                print(f"Meeting app matched: {app.name} (PID {app.pid})")
+                print(f"Meeting app matched: {app.name} ({len(app.pids)} processes)")
                 return app
         if apps:
             print(f"No running app matching '{preselected}'. Choose from detected apps:")
@@ -83,7 +83,7 @@ async def select_meeting(preselected: str | None) -> MeetingApp | None:
         chosen = _pick(labels, "Enter number", allow_skip=False)
         return None if chosen == 0 else _SKIP
 
-    labels = [f"{app.name} (PID {app.pid})" for app in apps]
+    labels = [f"{app.name} ({len(app.pids)} process{'es' if len(app.pids) > 1 else ''})" for app in apps]
     labels.append("All system audio")
 
     chosen = _pick(labels, "Enter number (0 to skip meeting audio)", allow_skip=True)

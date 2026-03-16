@@ -1,30 +1,43 @@
 """Detect running meeting applications on macOS."""
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 log = logging.getLogger(__name__)
 
-# Known meeting apps: (display name, bundle ID or executable names to try)
-# Uses pgrep -x (exact) first, then pgrep -f (partial) as fallback
+# Known meeting apps: (display name, exact process names, partial/bundle fallbacks)
 KNOWN_APPS: list[tuple[str, list[str], list[str]]] = [
     # (display name, exact process names, partial/bundle fallbacks)
-    ("Microsoft Teams", ["MSTeams"],         ["com.microsoft.teams2", "teams2"]),
-    ("Zoom",            ["zoom.us", "Zoom"],  ["zoom.us"]),
-    ("Webex",           ["Webex"],            ["com.cisco.webex", "CiscoWebex"]),
-    ("Slack",           ["Slack"],            ["com.tinyspeck.slackmacgap"]),
-    ("Discord",         ["Discord"],          ["com.hnc.Discord"]),
-    ("Google Meet",     [],                   ["Google Chrome Helper"]),  # Meet runs in browser
+    # For multi-process apps, exact names lists ALL process names used by the app.
+    # AudioTee will tap audio from all of them, ensuring no audio is missed.
+    ("Microsoft Teams", [
+        "MSTeams",
+        "Microsoft Teams WebView",
+        "Microsoft Teams WebView Helper",
+        "Microsoft Teams WebView Helper (GPU)",
+        "Microsoft Teams WebView Helper (Renderer)",
+        "Microsoft Teams WebView Helper (Plugin)",
+    ], ["com.microsoft.teams2"]),
+    ("Zoom",     ["zoom.us", "Zoom", "ZoomWebviewHelper"], ["zoom.us"]),
+    ("Webex",    ["Webex", "Webex Meetings"],              ["com.cisco.webex"]),
+    ("Slack",    ["Slack", "Slack Helper", "Slack Helper (Renderer)"], ["com.tinyspeck.slackmacgap"]),
+    ("Discord",  ["Discord", "Discord Helper", "Discord Helper (Renderer)"], ["com.hnc.Discord"]),
+    ("Google Meet", [], ["Google Chrome Helper"]),
 ]
 
 
 @dataclass
 class MeetingApp:
     name: str
-    pid: int
+    pids: list[int] = field(default_factory=list)
+
+    @property
+    def primary_pid(self) -> int:
+        return self.pids[0]
 
 
-async def _pgrep(args: list[str]) -> int | None:
+async def _pgrep_all(args: list[str]) -> list[int]:
+    """Return all matching PIDs."""
     proc = await asyncio.create_subprocess_exec(
         "pgrep", *args,
         stdout=asyncio.subprocess.PIPE,
@@ -32,12 +45,12 @@ async def _pgrep(args: list[str]) -> int | None:
     )
     stdout, _ = await proc.communicate()
     if proc.returncode == 0 and stdout.strip():
-        return int(stdout.strip().split(b"\n")[0])
-    return None
+        return [int(p) for p in stdout.strip().split(b"\n") if p.strip()]
+    return []
 
 
 async def detect_meeting_apps() -> list[MeetingApp]:
-    """Return all currently running meeting apps."""
+    """Return all currently running meeting apps with all their PIDs."""
     found: list[MeetingApp] = []
     seen: set[str] = set()
 
@@ -45,24 +58,25 @@ async def detect_meeting_apps() -> list[MeetingApp]:
         if display_name in seen:
             continue
 
-        pid: int | None = None
+        all_pids: list[int] = []
 
-        # Try exact match first
-        for name in exact_names:
-            pid = await _pgrep(["-x", name])
-            if pid:
-                break
+        # Collect PIDs from ALL known process names for this app (runs in parallel)
+        if exact_names:
+            results = await asyncio.gather(*[_pgrep_all(["-x", name]) for name in exact_names])
+            for pids in results:
+                all_pids.extend(pids)
 
-        # Fall back to partial/bundle match
-        if not pid:
+        # If no exact match at all, try partial fallback to confirm app is running
+        if not all_pids:
             for name in partial_names:
-                pid = await _pgrep(["-f", name])
-                if pid:
+                pids = await _pgrep_all(["-f", name])
+                if pids:
+                    all_pids.extend(pids)
                     break
 
-        if pid:
-            found.append(MeetingApp(name=display_name, pid=pid))
+        if all_pids:
+            found.append(MeetingApp(name=display_name, pids=all_pids))
             seen.add(display_name)
-            log.info("Detected '%s' (PID %d)", display_name, pid)
+            log.info("Detected '%s' with %d process(es): %s", display_name, len(all_pids), all_pids)
 
     return found

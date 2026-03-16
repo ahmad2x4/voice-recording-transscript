@@ -77,7 +77,7 @@ def main(
         chosen_mic = select_mic(preselected=mic_device)
 
     # Interactive meeting selection
-    chosen_meeting_pid: int | None = None
+    chosen_meeting_pid: list[int] = []
     chosen_meeting_name: str = ""
     use_system_audio = not no_meeting
 
@@ -89,7 +89,7 @@ def main(
             # "all system audio" — no PID filter
             chosen_meeting_name = "all system audio"
         else:
-            chosen_meeting_pid = result.pid
+            chosen_meeting_pid = result.pids
             chosen_meeting_name = result.name
 
     config = Config(
@@ -97,7 +97,7 @@ def main(
         model=model,
         output_dir=output_dir,
         mic_device=chosen_mic,
-        meeting_pid=chosen_meeting_pid,
+        meeting_pids=chosen_meeting_pid,
         meeting_name=chosen_meeting_name,
         use_mic=not no_mic,
         use_system_audio=use_system_audio,

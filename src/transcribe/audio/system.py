@@ -10,10 +10,10 @@ BYTES_PER_SAMPLE = 2  # 16-bit
 CHUNK_BYTES = int(SAMPLE_RATE * CHUNK_DURATION_MS / 1000) * BYTES_PER_SAMPLE
 
 
-async def system_audio_stream(teams_pid: int | None = None) -> AsyncIterator[bytes]:
-    cmd = ["audiotee", "--sample-rate", str(SAMPLE_RATE)]
-    if teams_pid is not None:
-        cmd.extend(["--include-processes", str(teams_pid)])
+async def system_audio_stream(meeting_pids: list[int] | None = None) -> AsyncIterator[bytes]:
+    cmd = ["audiotee", "--sample-rate", str(SAMPLE_RATE), "--flush"]
+    if meeting_pids:
+        cmd.extend(["--include-processes"] + [str(p) for p in meeting_pids])
 
     log.info("Starting AudioTee: %s", " ".join(cmd))
 

@@ -9,7 +9,7 @@ class Config:
     model: str = "gpt-4o-mini-transcribe"
     output_dir: Path = field(default_factory=Path.cwd)
     mic_device: int | None = None
-    meeting_pid: int | None = None  # PID to pass to AudioTee --include-processes
+    meeting_pids: list[int] = field(default_factory=list)  # PIDs for AudioTee --include-processes
     meeting_name: str = ""          # Display name for output
     use_mic: bool = True
     use_system_audio: bool = True

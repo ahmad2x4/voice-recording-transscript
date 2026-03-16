@@ -63,7 +63,7 @@ async def run(config: Config) -> None:
                     label="Remote",
                     output_queue=output_queue,
                 )
-                tg.create_task(sys_client.run(system_audio_stream(teams_pid=config.meeting_pid)))
+                tg.create_task(sys_client.run(system_audio_stream(meeting_pids=config.meeting_pids or None)))
 
             await shutdown.wait()
             raise KeyboardInterrupt
